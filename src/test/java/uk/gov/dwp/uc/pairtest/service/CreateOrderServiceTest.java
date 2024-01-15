@@ -4,11 +4,15 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import uk.gov.dwp.uc.pairtest.domain.TicketTypeRequest.Type;
 import uk.gov.dwp.uc.pairtest.exception.InvalidPurchaseException;
 
@@ -92,59 +96,54 @@ class CreateOrderServiceTest {
     assertEquals("Seats to be reserved or order cost cannot be zero.", thrown.getMessage());
   }
 
-  @Test
+  @ParameterizedTest
   @DisplayName("Valid request returns correct seats and cost")
-  void valid_request_returns_correct_values_adult() {
-
-    var order = new HashMap<Type, Integer>();
-    order.put(Type.ADULT, 1);
+  @MethodSource("validRequests")
+  void valid_request_returns_correct_values_adult(Map<Type, Integer> order, int expectedSeats, int expectedCost) {
 
     var result = service.createOrderSummary(order);
 
-    assertEquals(1, result.get("Seats"));
-    assertEquals(20, result.get("TotalCost"));
+    assertEquals(expectedSeats, result.get("Seats"));
+    assertEquals(expectedCost, result.get("TotalCost"));
   }
 
-  @Test
-  @DisplayName("Valid request returns correct seats and cost")
-  void valid_request_returns_correct_values_adult_child() {
+  static Stream<Arguments> validRequests() {
 
-    var order = new HashMap<Type, Integer>();
-    order.put(Type.ADULT, 2);
-    order.put(Type.CHILD, 3);
+    var oneAdult = new HashMap<Type, Integer>();
+    oneAdult.put(Type.ADULT, 1);
 
-    var result = service.createOrderSummary(order);
+    var maxAdults = new HashMap<Type, Integer>();
+    maxAdults.put(Type.ADULT, 20);
 
-    assertEquals(5, result.get("Seats"));
-    assertEquals(70, result.get("TotalCost"));
-  }
+    var maxChildOneAdult = new HashMap<Type, Integer>();
+    maxChildOneAdult.put(Type.ADULT, 1);
+    maxChildOneAdult.put(Type.CHILD, 19);
 
-  @Test
-  @DisplayName("Valid request returns correct seats and cost")
-  void valid_request_returns_correct_values_adult_infant() {
+    var maxInfantsAndAdults = new HashMap<Type, Integer>();
+    maxInfantsAndAdults.put(Type.ADULT, 10);
+    maxInfantsAndAdults.put(Type.INFANT, 10);
 
-    var order = new HashMap<Type, Integer>();
-    order.put(Type.ADULT, 2);
-    order.put(Type.INFANT, 2);
+    var oneEachType = new HashMap<Type, Integer>();
+    oneEachType.put(Type.ADULT, 1);
+    oneEachType.put(Type.CHILD, 1);
+    oneEachType.put(Type.INFANT, 1);
 
-    var result = service.createOrderSummary(order);
+    var oneAdultOneChild = new HashMap<Type, Integer>();
+    oneAdultOneChild.put(Type.ADULT, 1);
+    oneAdultOneChild.put(Type.CHILD, 1);
 
-    assertEquals(2, result.get("Seats"));
-    assertEquals(40, result.get("TotalCost"));
-  }
+    var oneAdultOneInfant = new HashMap<Type, Integer>();
+    oneAdultOneInfant.put(Type.ADULT, 1);
+    oneAdultOneInfant.put(Type.INFANT, 1);
 
-  @Test
-  @DisplayName("Valid request returns correct seats and cost")
-  void valid_request_returns_correct_values_adult_child_infant() {
-
-    var order = new HashMap<Type, Integer>();
-    order.put(Type.ADULT, 3);
-    order.put(Type.INFANT, 2);
-    order.put(Type.CHILD, 2);
-
-    var result = service.createOrderSummary(order);
-
-    assertEquals(5, result.get("Seats"));
-    assertEquals(80, result.get("TotalCost"));
+    return Stream.of(
+        Arguments.of(oneAdult, 1, 20),
+        Arguments.of(maxAdults, 20, 400),
+        Arguments.of(maxChildOneAdult, 20, 210),
+        Arguments.of(maxInfantsAndAdults, 10, 200),
+        Arguments.of(oneEachType, 2, 30),
+        Arguments.of(oneAdultOneChild, 2, 30),
+        Arguments.of(oneAdultOneInfant, 1, 20)
+    );
   }
 }
