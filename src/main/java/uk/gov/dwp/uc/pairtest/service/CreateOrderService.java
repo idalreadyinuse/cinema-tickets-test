@@ -1,36 +1,34 @@
 package uk.gov.dwp.uc.pairtest.service;
 
-import static uk.gov.dwp.uc.pairtest.domain.TicketTypeRequest.Type.*;
+import static uk.gov.dwp.uc.pairtest.domain.TicketTypeRequest.Type.ADULT;
+import static uk.gov.dwp.uc.pairtest.domain.TicketTypeRequest.Type.CHILD;
+import static uk.gov.dwp.uc.pairtest.domain.TicketTypeRequest.Type.INFANT;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.logging.Logger;
-import uk.gov.dwp.uc.pairtest.domain.TicketTypeRequest.Type;
+import java.util.stream.Collectors;
+import uk.gov.dwp.uc.pairtest.domain.TicketTypeRequest;
 import uk.gov.dwp.uc.pairtest.exception.InvalidPurchaseException;
 
 public class CreateOrderService {
 
   private static final Logger LOG = Logger.getLogger(CreateOrderService.class.getName());
 
-  private static final int MAX_TICKETS_ALLOWED = 20;
   private static final int ADULT_TICKET_COST = 20;
   private static final int CHILD_TICKET_COST = 10;
   private static final int INFANT_TICKET_COST = 0;
   public static final String TOTAL_SEATS_LABEL = "Seats";
   public static final String ORDER_COST_LABEL = "TotalCost";
 
+  public Map<String, Integer> createOrderSummary(TicketTypeRequest... ticketTypeRequests) {
 
-  public Map<String, Integer> createOrderSummary(Map<Type, Integer> ticketMap) {
-
-    var totalTickets = ticketMap.values().stream().mapToInt(tickets -> tickets).sum();
-    if (totalTickets > 20) {
-      var message =
-          String.format(
-              "Total ordered tickets (%s), exceeds maximum allowed (%s).",
-              totalTickets, MAX_TICKETS_ALLOWED);
-      LOG.info(message);
-      throw new InvalidPurchaseException(message);
-    }
+    var ticketMap =
+        Arrays.stream(ticketTypeRequests)
+            .collect(
+                Collectors.toMap(
+                    TicketTypeRequest::getTicketType, TicketTypeRequest::getNoOfTickets));
 
     Map<String, Integer> orderSummary = new HashMap<>();
 
@@ -43,15 +41,15 @@ public class CreateOrderService {
 
     var totalCost =
         (adultTickets * ADULT_TICKET_COST)
-        + (childTickets * CHILD_TICKET_COST)
-        + (infantTickets * INFANT_TICKET_COST);
+            + (childTickets * CHILD_TICKET_COST)
+            + (infantTickets * INFANT_TICKET_COST);
 
     var seatsToReserve = adultTickets + childTickets;
 
     if (seatsToReserve == 0 || totalCost == 0) {
-      var msg = "Seats to be reserved or order cost cannot be zero.";
-      LOG.info(msg);
-      throw new InvalidPurchaseException(msg);
+      var message = "Seats to be reserved or order cost cannot be zero.";
+      LOG.info(message);
+      throw new InvalidPurchaseException(message);
     } else {
       orderSummary.put(TOTAL_SEATS_LABEL, seatsToReserve);
       orderSummary.put(ORDER_COST_LABEL, totalCost);

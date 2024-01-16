@@ -3,9 +3,8 @@ package uk.gov.dwp.uc.pairtest;
 import static uk.gov.dwp.uc.pairtest.service.CreateOrderService.ORDER_COST_LABEL;
 import static uk.gov.dwp.uc.pairtest.service.CreateOrderService.TOTAL_SEATS_LABEL;
 
+import java.util.Arrays;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import lombok.RequiredArgsConstructor;
 import thirdparty.paymentgateway.TicketPaymentService;
 import thirdparty.seatbooking.SeatReservationService;
@@ -22,23 +21,15 @@ public class TicketServiceImpl implements TicketService {
   private final SeatReservationService seatReservationService;
   private final CreateOrderService createOrderService;
 
+  private static final int MAX_TICKETS_ALLOWED = 20;
+
   @Override
   public void purchaseTickets(Long accountId, TicketTypeRequest... ticketTypeRequests)
       throws InvalidPurchaseException {
 
-    if (accountId == null || accountId <= 0L) {
-      var msg = "Account ID is invalid";
-      LOG.info(msg);
-      throw new InvalidPurchaseException(msg);
-    }
+    initialValidation(accountId, ticketTypeRequests);
 
-    var ticketMap =
-        Stream.of(ticketTypeRequests)
-            .collect(
-                Collectors.toMap(
-                    TicketTypeRequest::getTicketType, TicketTypeRequest::getNoOfTickets));
-
-    var orderSummary = createOrderService.createOrderSummary(ticketMap);
+    var orderSummary = createOrderService.createOrderSummary(ticketTypeRequests);
 
     var seatsToReserve = orderSummary.get(TOTAL_SEATS_LABEL);
     var orderCost = orderSummary.get(ORDER_COST_LABEL);
@@ -48,5 +39,27 @@ public class TicketServiceImpl implements TicketService {
 
     LOG.info(String.format("Reserving %s seats for account ID %s", seatsToReserve, accountId));
     seatReservationService.reserveSeat(accountId, seatsToReserve);
+  }
+
+  private static void initialValidation(Long accountId, TicketTypeRequest... ticketTypeRequests) {
+    if (accountId == null || accountId <= 0L) {
+      var message = "Account ID is invalid";
+      LOG.info(message);
+      throw new InvalidPurchaseException(message);
+    }
+
+    var numberOfTickets =
+        Arrays.stream(ticketTypeRequests)
+            .mapToInt(TicketTypeRequest::getNoOfTickets)
+            .reduce(0, Integer::sum);
+
+    if (numberOfTickets > 20) {
+      var message =
+          String.format(
+              "Total ordered tickets (%s), exceeds maximum allowed (%s).",
+              numberOfTickets, MAX_TICKETS_ALLOWED);
+      LOG.info(message);
+      throw new InvalidPurchaseException(message);
+    }
   }
 }
